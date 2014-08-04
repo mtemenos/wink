@@ -117,7 +117,7 @@ public class ApplicationProcessor {
                 // the validations were moved to registry
 
                 if (ResourceMetadataCollector.isDynamicResource(cls)) {
-                    resourceRegistry.addResource(obj, priority);
+                    resourceRegistry.addResource(obj, priority, false); // Do not sort them everytimes we add one item !
                 } else if (ResourceMetadataCollector.isStaticResource(cls)) {
                     resourceRegistry.addResource(obj, priority);
                 } else if (ProviderMetadataCollector.isProvider(cls)) {
@@ -153,6 +153,10 @@ public class ApplicationProcessor {
                 }
             }
         }
+        /*
+         * Sort it only at the end.
+         */
+        resourceRegistry.assertSorted();
     }
 
     private void processClasses(Set<Class<?>> classes, double priority) {

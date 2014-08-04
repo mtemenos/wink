@@ -69,7 +69,6 @@ public class ResourceRegistry {
                                                                                                                                .getLogger(ResourceRegistry.class);
 
     private List<ResourceRecord>                                                   rootResources;
-	private List<RawResource> 													   rawRootResources;
 
     private ResourceRecordFactory                                                  resourceRecordsFactory;
 
@@ -90,8 +89,6 @@ public class ResourceRegistry {
                             Properties properties) {
         this.applicationValidator = applicationValidator;
         rootResources = new LinkedList<ResourceRecord>();
-		rawRootResources = new LinkedList<RawResource>();
-
         resourceRecordsFactory = new ResourceRecordFactory(factoryRegistry, properties);
         ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         readersLock = readWriteLock.readLock();
@@ -126,31 +123,53 @@ public class ResourceRegistry {
      * @param clazz the resource class to add
      * @param priority priority of the resource
      */
-    public void addResource(Object instance, double priority) {
-        logger.trace("Adding resource instance: {} with priority: {}", instance, priority); //$NON-NLS-1$
+	public void addResource(Object instance, double priority) {
+		addResource(instance, priority, true);
+	}
+	
+	/**
+	 * Add a resource as an object to the registry with a priority
+	 * 
+	 * @param clazz
+	 *            the resource class to add
+	 * @param priority
+	 *            priority of the resource
+	 * @param andSort 
+	 *            sort the collection immediately
+	 */
+	public void addResource(Object instance, double priority, boolean andSort) {
+		
+		logger.trace("Adding resource instance: {} with priority: {}", instance, priority); //$NON-NLS-1$
 
-        writersLock.lock();
-        try {
-            if (!applicationValidator.isValidResource(instance.getClass())) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn(Messages
-                        .getMessage("resourceClassNotValid", instance.getClass().getName())); //$NON-NLS-1$
-                }
-                return;
-            }
-
+		writersLock.lock();
+		try {
+			if (!applicationValidator.isValidResource(instance.getClass())) {
+				if (logger.isWarnEnabled()) {
+					logger.warn(Messages.getMessage("resourceClassNotValid", instance.getClass().getName())); //$NON-NLS-1$
+				}
+				return;
+			}
+			ResourceRecord record = null;
 			if (instance instanceof DynamicResource) {
-				rawRootResources.add(new RawResource(instance, priority));
+				/*
+				 * Construct the strict minimum. The resource will be loaded only if necessary.
+				 */
+				record = new ResourceRecord(resourceRecordsFactory, instance, true);
 			} else {
-				ResourceRecord record = getRecord(instance);
-				record.setPriority(priority);
-				rootResources.add(record);
+				/*
+				 * Just do the normal slow thing. 
+				 */
+				record = getRecord(instance);
+			}
+			record.setPriority(priority);
+			rootResources.add(record);
+			if (andSort){
 				assertSorted();
 			}
-        } finally {
-            writersLock.unlock();
-        }
-    }
+		} finally {
+			writersLock.unlock();
+		}
+	}
 
     /**
      * Add a resource class to the registry with a priority
@@ -188,7 +207,6 @@ public class ResourceRegistry {
                 record.getObjectFactory().releaseAll(null);
             }
             rootResources.clear();
-            rawRootResources.clear();
             assertSorted();
         } finally {
             writersLock.unlock();
@@ -268,7 +286,7 @@ public class ResourceRegistry {
     /**
      * Verify that the root resources list is sorted
      */
-    private void assertSorted() {
+    public void assertSorted() {
         // we use the reverse-order comparator because the sort method
         // will sort the elements in ascending order, but we want
         // them sorted in descending order
@@ -338,44 +356,7 @@ public class ResourceRegistry {
 					}
 				}
 			}
-			if (previousMatched.size() > 0) { // Could do the test on found as well.
-				uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
-			}else{
-				/*
-				 * OK, not in the list of resources yet. Is it known in the raw
-				 * collection ?
-				 */
-				for (RawResource rawRecord : rawRootResources) {
-					UriTemplateMatcher matcher = rawRecord.getProcessor().matcher();
-					if (matcher.matches(uri)) {
-						/*
-						 * We found one. So add it to the "normal" record
-						 * collection. 
-						 */
-						ResourceRecord record = getRecord(rawRecord.getInstance());
-						record.setPriority(rawRecord.getPriority());
-						rootResources.add(record);
-						assertSorted();
-						/*
-						 * However, it could be that this is not a 
-						 * exact match. so do the test again.
-						 */
-						if (matcher.isExactMatch() || record.hasSubResources()) {
-							previousMatched.add(record);
-							found.add(new ResourceInstance(record, matcher));
-							if (!isContinuedSearchPolicy) {
-								break;
-							}				
-						}
-					}
-				}
-				/*
-				 * Add it to the cache.
-				 */
-				if (previousMatched.size() > 0) { // Could do the test on found as well.
-					uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
-				}
-			}
+			uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
 		} finally {
 			readersLock.unlock();
 		}

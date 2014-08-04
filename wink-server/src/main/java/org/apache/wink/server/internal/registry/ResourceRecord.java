@@ -24,9 +24,11 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.wink.common.DynamicResource;
 import org.apache.wink.common.internal.lifecycle.ObjectFactory;
 import org.apache.wink.common.internal.registry.metadata.ClassMetadata;
 import org.apache.wink.common.internal.registry.metadata.MethodMetadata;
+import org.apache.wink.common.internal.uritemplate.JaxRsUriTemplateProcessor;
 import org.apache.wink.common.internal.uritemplate.UriTemplateMatcher;
 import org.apache.wink.common.internal.uritemplate.UriTemplateProcessor;
 
@@ -41,6 +43,12 @@ public class ResourceRecord extends TemplatedRecord {
     private List<SubResourceRecord> subResources;
     private double                  priority;
 
+	private final ResourceRecordFactory factory;
+	private final DynamicResource raw;
+	private ResourceRecord record;
+	private final boolean lazy;
+	private final boolean isRoot;
+    
     public ResourceRecord(ClassMetadata metadata,
                           ObjectFactory<?> objectFactory,
                           UriTemplateProcessor processor) {
@@ -49,9 +57,50 @@ public class ResourceRecord extends TemplatedRecord {
         this.objectFactory = objectFactory;
         this.subResources = new LinkedList<SubResourceRecord>();
         this.priority = -1;
+        this.factory = null;
+        this.raw = null;
+        lazy = false;
+        this.isRoot = true;
+        this.record = this;
         build();
     }
+    
+    /*
+     * Lazy loading 
+     */
+	public ResourceRecord(ResourceRecordFactory factory, Object o, boolean isRoot) {
+		super(getTemplateProcessor(o));
 
+		if (!(o instanceof DynamicResource)){
+			throw new RuntimeException("Only Dynamic resources can apply for lazy loading.");
+		}
+		this.factory = factory;
+		this.raw = (DynamicResource)o; // Will be loaded only if necessary.
+		this.isRoot = isRoot;
+		lazy = true;
+	}
+	
+	/*
+	 * Lazy loading only.
+	 */
+	private static final UriTemplateProcessor getTemplateProcessor(Object o){
+		String sUri = ((DynamicResource)o).getPath();
+		if (sUri.startsWith("/")){
+			sUri = sUri.substring(1);
+		}
+		if (!sUri.endsWith("/")){
+			sUri += "/";
+		}
+		return JaxRsUriTemplateProcessor.newNormalizedInstance(sUri);
+	}
+
+	private void ensureLoaded(){
+		if (lazy && this.record == null){
+			this.record = this.factory.getResourceRecord(this.raw, this.isRoot);
+			this.record.setPriority(this.priority);
+		}
+	}
+	
     public double getPriority() {
         return priority;
     }
@@ -66,16 +115,20 @@ public class ResourceRecord extends TemplatedRecord {
      * @return {@link ClassMetadata} of the resource
      */
     public ClassMetadata getMetadata() {
-        return metadata;
+    	ensureLoaded();
+        return this.record.metadata;
     }
 
+    
+    
     /**
      * Get the {@link ObjectFactory} of the resource
      * 
      * @return {@link ObjectFactory} of the resource
      */
     public ObjectFactory<?> getObjectFactory() {
-        return objectFactory;
+    	ensureLoaded();
+        return this.record.objectFactory;
     }
 
     /**
@@ -119,7 +172,8 @@ public class ResourceRecord extends TemplatedRecord {
      * @return true if there is at least one sub-resource (method or locator)
      */
     public boolean hasSubResources() {
-        return (subResources.size() > 0);
+    	ensureLoaded();
+        return (this.record.subResources.size() > 0);
     }
 
     /**
@@ -130,27 +184,32 @@ public class ResourceRecord extends TemplatedRecord {
      * @return a sorted list (in descending order) of matching sub-resources
      */
     public List<SubResourceInstance> getMatchingSubResources(String uri) {
-        return getMatchingSubResources(uri, true, true);
+    	ensureLoaded();
+        return this.record.getMatchingSubResources(uri, true, true);
     }
 
     public List<SubResourceInstance> getMatchingSubResourceMethods(String uri) {
-        return getMatchingSubResources(uri, true, false);
+    	ensureLoaded();
+        return this.record.getMatchingSubResources(uri, true, false);
     }
 
     public List<SubResourceInstance> getMatchingSubResourceLocators(String uri) {
-        return getMatchingSubResources(uri, false, true);
+    	ensureLoaded();
+        return this.record.getMatchingSubResources(uri, false, true);
     }
 
     public List<SubResourceRecord> getSubResourceRecords() {
-        return subResources;
+    	ensureLoaded();
+        return this.record.subResources;
     }
 
     public List<SubResourceInstance> getMatchingSubResources(String uri,
                                                              boolean method,
                                                              boolean locator) {
+    	ensureLoaded();
         List<SubResourceInstance> list = new LinkedList<SubResourceInstance>();
         // add records according to the request uri
-        for (SubResourceRecord record : subResources) {
+        for (SubResourceRecord record : this.record.subResources) {
             UriTemplateMatcher matcher = record.getTemplateProcessor().matcher();
             // if the uri is a match to the uri template
             if (matcher.matches(uri)) {
@@ -167,14 +226,15 @@ public class ResourceRecord extends TemplatedRecord {
 
     @Override
     public String toString() {
+    	ensureLoaded();
         return String.format("Path: %s; ClassMetadata: %s", super.toString(), //$NON-NLS-1$
-                             metadata);
+        		this.record.metadata);
     }
 
     @Override
     public int compareTo(TemplatedRecord other) {
         if (other != null && other instanceof ResourceRecord) {
-            double ret = priority - ((ResourceRecord)other).priority;
+            double ret = this.priority - ((ResourceRecord)other).priority;
             if (ret < 0) {
                 return -1;
             }
