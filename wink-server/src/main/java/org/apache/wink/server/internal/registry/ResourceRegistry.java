@@ -40,6 +40,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 
+import org.apache.wink.common.DynamicResource;
 import org.apache.wink.common.RuntimeContext;
 import org.apache.wink.common.WinkApplication;
 import org.apache.wink.common.http.HttpHeadersEx;
@@ -68,6 +69,7 @@ public class ResourceRegistry {
                                                                                                                                .getLogger(ResourceRegistry.class);
 
     private List<ResourceRecord>                                                   rootResources;
+	private List<RawResource> 													   rawRootResources;
 
     private ResourceRecordFactory                                                  resourceRecordsFactory;
 
@@ -88,6 +90,8 @@ public class ResourceRegistry {
                             Properties properties) {
         this.applicationValidator = applicationValidator;
         rootResources = new LinkedList<ResourceRecord>();
+		rawRootResources = new LinkedList<RawResource>();
+
         resourceRecordsFactory = new ResourceRecordFactory(factoryRegistry, properties);
         ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         readersLock = readWriteLock.readLock();
@@ -135,10 +139,14 @@ public class ResourceRegistry {
                 return;
             }
 
-            ResourceRecord record = getRecord(instance);
-            record.setPriority(priority);
-            rootResources.add(record);
-            assertSorted();
+			if (instance instanceof DynamicResource) {
+				rawRootResources.add(new RawResource(instance, priority));
+			} else {
+				ResourceRecord record = getRecord(instance);
+				record.setPriority(priority);
+				rootResources.add(record);
+				assertSorted();
+			}
         } finally {
             writersLock.unlock();
         }
@@ -180,6 +188,7 @@ public class ResourceRegistry {
                 record.getObjectFactory().releaseAll(null);
             }
             rootResources.clear();
+            rawRootResources.clear();
             assertSorted();
         } finally {
             writersLock.unlock();
@@ -311,28 +320,65 @@ public class ResourceRegistry {
             return found;
         }
 
-        readersLock.lock();
-        try {
+		readersLock.lock();
+		try {
 
-            previousMatched = new ArrayList<ResourceRecord>();
+			previousMatched = new ArrayList<ResourceRecord>();
 
-            // the list of root resource records is already sorted
-            for (ResourceRecord record : rootResources) {
-                UriTemplateMatcher matcher = record.getTemplateProcessor().matcher();
-                if (matcher.matches(uri)) {
-                    if (matcher.isExactMatch() || record.hasSubResources()) {
-                        previousMatched.add(record);
-                        found.add(new ResourceInstance(record, matcher));
-                        if (!isContinuedSearchPolicy) {
-                            break;
-                        }
-                    }
-                }
-            }
-            uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
-        } finally {
-            readersLock.unlock();
-        }
+			// the list of root resource records is already sorted
+			for (ResourceRecord record : rootResources) {
+				UriTemplateMatcher matcher = record.getTemplateProcessor().matcher();
+				if (matcher.matches(uri)) {
+					if (matcher.isExactMatch() || record.hasSubResources()) {
+						previousMatched.add(record);
+						found.add(new ResourceInstance(record, matcher));
+						if (!isContinuedSearchPolicy) {
+							break;
+						}
+					}
+				}
+			}
+			if (previousMatched.size() > 0) { // Could do the test on found as well.
+				uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
+			}else{
+				/*
+				 * OK, not in the list of resources yet. Is it known in the raw
+				 * collection ?
+				 */
+				for (RawResource rawRecord : rawRootResources) {
+					UriTemplateMatcher matcher = rawRecord.getProcessor().matcher();
+					if (matcher.matches(uri)) {
+						/*
+						 * We found one. So add it to the "normal" record
+						 * collection. 
+						 */
+						ResourceRecord record = getRecord(rawRecord.getInstance());
+						record.setPriority(rawRecord.getPriority());
+						rootResources.add(record);
+						assertSorted();
+						/*
+						 * However, it could be that this is not a 
+						 * exact match. so do the test again.
+						 */
+						if (matcher.isExactMatch() || record.hasSubResources()) {
+							previousMatched.add(record);
+							found.add(new ResourceInstance(record, matcher));
+							if (!isContinuedSearchPolicy) {
+								break;
+							}				
+						}
+					}
+				}
+				/*
+				 * Add it to the cache.
+				 */
+				if (previousMatched.size() > 0) { // Could do the test on found as well.
+					uriToResourceCache.get(isContinuedSearchPolicy).put(uri, previousMatched);
+				}
+			}
+		} finally {
+			readersLock.unlock();
+		}
 
         return found;
     }

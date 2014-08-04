@@ -18,7 +18,7 @@
  *  
  *******************************************************************************/
 package org.apache.wink.server.internal.application;
-// Thierry Was here
+
 import java.lang.reflect.Modifier;
 import java.util.Set;
 
