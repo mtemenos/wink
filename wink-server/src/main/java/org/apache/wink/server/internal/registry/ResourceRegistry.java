@@ -332,6 +332,7 @@ public class ResourceRegistry {
             for (ResourceRecord record : previousMatched) {
                 UriTemplateMatcher matcher = record.getTemplateProcessor().matcher();
                 if (matcher.matches(uri)) {
+                	record.ensureLoaded();
                     found.add(new ResourceInstance(record, matcher));
                 }
             }
@@ -349,6 +350,7 @@ public class ResourceRegistry {
 				if (matcher.matches(uri)) {
 					if (matcher.isExactMatch() || record.hasSubResources()) {
 						previousMatched.add(record);
+						record.ensureLoaded();
 						found.add(new ResourceInstance(record, matcher));
 						if (!isContinuedSearchPolicy) {
 							break;

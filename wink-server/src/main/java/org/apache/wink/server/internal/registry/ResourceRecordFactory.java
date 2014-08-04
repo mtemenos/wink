@@ -206,7 +206,11 @@ public class ResourceRecordFactory {
         }
         return record;
     }
-
+    
+    protected LifecycleManagersRegistry getLifecycleManagerRegistry(){
+    	return lifecycleManagerRegistry;
+    }
+    
     private ResourceRecord createDynamicResourceRecord(DynamicResource instance, ObjectFactory<?> of) {
         Class<? extends Object> cls = instance.getClass();
         ClassMetadata metadata = createMetadata(cls);
@@ -221,13 +225,13 @@ public class ResourceRecordFactory {
         return new ResourceRecord(metadata, of, null);
     }
 
-    private ClassMetadata createMetadata(Class<? extends Object> cls) {
+    protected ClassMetadata createMetadata(Class<? extends Object> cls) {
         ClassMetadata md = ResourceMetadataCollector.collectMetadata(cls);
         md = fixConsumesAndProduces(md);
         return md;
     }
 
-    private UriTemplateProcessor createUriTemplateProcessor(ClassMetadata metadata) {
+    protected UriTemplateProcessor createUriTemplateProcessor(ClassMetadata metadata) {
         // create the resource path using the parents paths
         StringBuilder path = new StringBuilder();
         // Recursively append parent paths
@@ -269,7 +273,7 @@ public class ResourceRecordFactory {
      * @param instance
      * @return
      */
-    private ClassMetadata fixInstanceMetadata(ClassMetadata classMetadata,
+    protected ClassMetadata fixInstanceMetadata(ClassMetadata classMetadata,
                                               DynamicResource dynamicResource) {
         String path = dynamicResource.getPath();
         if (path != null) {

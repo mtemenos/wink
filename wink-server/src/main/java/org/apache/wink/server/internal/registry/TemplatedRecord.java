@@ -37,6 +37,10 @@ public abstract class TemplatedRecord implements Comparable<TemplatedRecord>, Cl
     public UriTemplateProcessor getTemplateProcessor() {
         return templateProcessor;
     }
+    
+    public void setTemplateProcessor(UriTemplateProcessor processor) {
+        this.templateProcessor = processor;
+    }
 
     public int compareTo(TemplatedRecord o) {
         return templateProcessor.compareTo(o.templateProcessor);

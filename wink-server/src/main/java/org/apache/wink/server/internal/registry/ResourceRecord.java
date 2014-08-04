@@ -45,7 +45,6 @@ public class ResourceRecord extends TemplatedRecord {
 
 	private final ResourceRecordFactory factory;
 	private final DynamicResource raw;
-	private ResourceRecord record;
 	private final boolean lazy;
 	private final boolean isRoot;
     
@@ -61,10 +60,10 @@ public class ResourceRecord extends TemplatedRecord {
         this.raw = null;
         lazy = false;
         this.isRoot = true;
-        this.record = this;
         build();
     }
     
+   
     /*
      * Lazy loading 
      */
@@ -94,18 +93,23 @@ public class ResourceRecord extends TemplatedRecord {
 		return JaxRsUriTemplateProcessor.newNormalizedInstance(sUri);
 	}
 
-	private void ensureLoaded(){
-		if (lazy && this.record == null){
-			this.record = this.factory.getResourceRecord(this.raw, this.isRoot);
-			this.record.setPriority(this.priority);
+	public void ensureLoaded(){
+		if (lazy && this.metadata == null){
+	        Class<? extends Object> cls = this.raw.getClass();
+	        ClassMetadata metadata = this.factory.createMetadata(cls);
+	        this.metadata = this.factory.fixInstanceMetadata(metadata, this.raw);
+	        super.setTemplateProcessor(this.factory.createUriTemplateProcessor(metadata));
+	        this.objectFactory = this.factory.getLifecycleManagerRegistry().getObjectFactory(this.raw);
+	        this.subResources = new LinkedList<SubResourceRecord>();
+			build();
 		}
 	}
 	
     public double getPriority() {
-        return priority;
+        return this.priority;
     }
 
-    /* package */void setPriority(double priority) {
+    void setPriority(double priority) {
         this.priority = priority;
     }
 
@@ -116,7 +120,7 @@ public class ResourceRecord extends TemplatedRecord {
      */
     public ClassMetadata getMetadata() {
     	ensureLoaded();
-        return this.record.metadata;
+        return this.metadata;
     }
 
     
@@ -128,7 +132,7 @@ public class ResourceRecord extends TemplatedRecord {
      */
     public ObjectFactory<?> getObjectFactory() {
     	ensureLoaded();
-        return this.record.objectFactory;
+        return this.objectFactory;
     }
 
     /**
@@ -173,7 +177,7 @@ public class ResourceRecord extends TemplatedRecord {
      */
     public boolean hasSubResources() {
     	ensureLoaded();
-        return (this.record.subResources.size() > 0);
+        return (this.subResources.size() > 0);
     }
 
     /**
@@ -185,31 +189,32 @@ public class ResourceRecord extends TemplatedRecord {
      */
     public List<SubResourceInstance> getMatchingSubResources(String uri) {
     	ensureLoaded();
-        return this.record.getMatchingSubResources(uri, true, true);
+        return getMatchingSubResources(uri, true, true);
     }
 
     public List<SubResourceInstance> getMatchingSubResourceMethods(String uri) {
     	ensureLoaded();
-        return this.record.getMatchingSubResources(uri, true, false);
+        return getMatchingSubResources(uri, true, false);
     }
 
     public List<SubResourceInstance> getMatchingSubResourceLocators(String uri) {
     	ensureLoaded();
-        return this.record.getMatchingSubResources(uri, false, true);
+        return getMatchingSubResources(uri, false, true);
     }
 
     public List<SubResourceRecord> getSubResourceRecords() {
     	ensureLoaded();
-        return this.record.subResources;
+        return this.subResources;
     }
 
     public List<SubResourceInstance> getMatchingSubResources(String uri,
                                                              boolean method,
                                                              boolean locator) {
+    	
     	ensureLoaded();
         List<SubResourceInstance> list = new LinkedList<SubResourceInstance>();
         // add records according to the request uri
-        for (SubResourceRecord record : this.record.subResources) {
+        for (SubResourceRecord record : subResources) {
             UriTemplateMatcher matcher = record.getTemplateProcessor().matcher();
             // if the uri is a match to the uri template
             if (matcher.matches(uri)) {
@@ -228,7 +233,7 @@ public class ResourceRecord extends TemplatedRecord {
     public String toString() {
     	ensureLoaded();
         return String.format("Path: %s; ClassMetadata: %s", super.toString(), //$NON-NLS-1$
-        		this.record.metadata);
+        		this.metadata);
     }
 
     @Override
@@ -244,5 +249,5 @@ public class ResourceRecord extends TemplatedRecord {
         }
         return super.compareTo(other);
     }
-
+    
 }
