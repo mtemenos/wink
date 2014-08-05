@@ -161,8 +161,13 @@ public class WADLGeneratorTest {
 
         List<MethodMetadata> methodMetadata = metadata.getResourceMethods();
         assertEquals(2, methodMetadata.size());
-//        assertEquals(HttpMethod.GET, methodMetadata.get(0).getHttpMethod());
-//        assertEquals(HttpMethod.POST, methodMetadata.get(1).getHttpMethod());
+        if (HttpMethod.GET.equals(methodMetadata.get(0).getHttpMethod())){
+            assertEquals(HttpMethod.POST, methodMetadata.get(1).getHttpMethod());
+        }else if(HttpMethod.POST.equals(methodMetadata.get(0).getHttpMethod())){
+            assertEquals(HttpMethod.GET, methodMetadata.get(1).getHttpMethod());
+        }else{
+            Assert.fail("Should have [POST] and [GET] in the 2 first methods : " + methodMetadata.get(0).getHttpMethod() + "/" + methodMetadata.get(1).getHttpMethod());
+        }
     }
 
     @Test
