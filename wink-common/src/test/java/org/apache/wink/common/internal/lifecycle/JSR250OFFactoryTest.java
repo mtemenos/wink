@@ -134,7 +134,7 @@ public class JSR250OFFactoryTest extends TestCase {
         assertEquals(JSR250SingletonObjectFactory.class, of.getClass());
         // due to behavior of singleton instances, the object will have already been created without 
         // calling of.getInstance(RuntimeContext)
-//        assertEquals(called, ProviderPostConstructDoubleSingleton.class.getSimpleName() + ".postConstruct1()");
+        assertEquals(called, ProviderPostConstructDoubleSingleton.class.getSimpleName() + ".postConstruct1()");
     }
     
     @SuppressWarnings("unchecked")
