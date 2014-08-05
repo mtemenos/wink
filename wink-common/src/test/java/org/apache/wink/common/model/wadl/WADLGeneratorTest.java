@@ -161,8 +161,8 @@ public class WADLGeneratorTest {
 
         List<MethodMetadata> methodMetadata = metadata.getResourceMethods();
         assertEquals(2, methodMetadata.size());
-//        assertEquals(HttpMethod.GET, methodMetadata.get(0).getHttpMethod());
-//        assertEquals(HttpMethod.POST, methodMetadata.get(1).getHttpMethod());
+        assertEquals(HttpMethod.GET, methodMetadata.get(0).getHttpMethod());
+        assertEquals(HttpMethod.POST, methodMetadata.get(1).getHttpMethod());
     }
 
     @Test
