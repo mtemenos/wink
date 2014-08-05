@@ -57,7 +57,11 @@ public class ApplicationProcessorTest extends TestCase {
         }
 
         public void addResource(Object instance, double priority) {
-            if (instance instanceof BadResource) {
+        	addResource(instance, priority, true);
+        }
+        
+        public void addResource(Object instance, double priority, boolean andSort) {
+        	if (instance instanceof BadResource) {
                 throw new BadResource("BadResource cannot be added");
             }
             instances.add(instance);
@@ -245,8 +249,8 @@ public class ApplicationProcessorTest extends TestCase {
         assertTrue(providersRegistry.instances.contains(StringProvider));
         assertTrue(resourceRegistry.instances.contains(rootResource));
         assertTrue(resourceRegistry.instances.contains(HtmlServiceDocument));
-//        assertTrue(resourceRegistry.instances.contains(DynamicResource));
-//        assertEquals(2, providersRegistry.instances.size());
-//        assertEquals(3, resourceRegistry.instances.size());
+        assertTrue(resourceRegistry.instances.contains(DynamicResource));
+        assertEquals(2, providersRegistry.instances.size());
+        assertEquals(3, resourceRegistry.instances.size());
     }
 }
