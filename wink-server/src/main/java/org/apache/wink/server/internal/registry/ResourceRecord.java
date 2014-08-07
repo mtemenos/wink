@@ -79,6 +79,10 @@ public class ResourceRecord extends TemplatedRecord {
 		lazy = true;
 	}
 	
+	public boolean isLoaded(){
+		return !(lazy && this.metadata == null);
+	}
+	
 	/*
 	 * Lazy loading only.
 	 */
@@ -94,7 +98,7 @@ public class ResourceRecord extends TemplatedRecord {
 	}
 
 	public void ensureLoaded(){
-		if (lazy && this.metadata == null){
+		if (!isLoaded()){
 	        Class<? extends Object> cls = this.raw.getClass();
 	        ClassMetadata metadata = this.factory.createMetadata(cls);
 	        this.metadata = this.factory.fixInstanceMetadata(metadata, this.raw);

@@ -204,7 +204,9 @@ public class ResourceRegistry {
         writersLock.lock();
         try {
             for (ResourceRecord record : rootResources) {
-                record.getObjectFactory().releaseAll(null);
+            	if (record.isLoaded()){
+            		record.getObjectFactory().releaseAll(null);
+            	}
             }
             rootResources.clear();
             assertSorted();
