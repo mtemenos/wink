@@ -39,6 +39,7 @@ import org.apache.wink.logging.WinkLogHandler;
 import org.apache.wink.server.internal.application.ApplicationProcessor;
 import org.apache.wink.server.internal.registry.ResourceRegistry;
 import org.apache.wink.server.internal.servlet.MockServletInvocationTest;
+import org.apache.wink.server.serviceability.ServiceabilityTest.MyApp.MyAppResource;
 import org.apache.wink.test.mock.MockRequestConstructor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -157,6 +158,12 @@ public class ServiceabilityTest extends MockServletInvocationTest {
         assertEquals(1, records.size());
         assertEquals("The following JAX-RS application has been processed: org.apache.wink.server.serviceability.ServiceabilityTest$MyApp",
                      records.get(0).getMessage());
+        
+        assertEquals(1, mockResourceRegistry.getRecords().size());
+        
+        mockResourceRegistry.removeResource(MyAppResource.class);
+        
+        assertEquals(0, mockResourceRegistry.getRecords().size());        
     }
 
     public void testGoodURLLogOutput1() throws Exception {

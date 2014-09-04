@@ -169,6 +169,36 @@ public class ResourceRegistry {
             writersLock.unlock();
         }
     }
+    
+    /**
+     * Removes a resource class to the registry
+     * 
+     * @param instance
+     */
+    public void removeResource(Class<?> clazz) {
+        logger.trace("Removing resource class: {}", clazz); //$NON-NLS-1$
+
+        writersLock.lock();
+        
+        try {
+            if (!applicationValidator.isValidResource(clazz)) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(Messages.getMessage("resourceClassNotValid", clazz.getName())); //$NON-NLS-1$
+                }
+                return;
+            }
+
+            // Get hold of the record to remove
+            ResourceRecord record = getRecord(clazz);
+            
+            // à bientôt resource
+            rootResources.remove(record);
+            
+            assertSorted();
+        } finally {
+            writersLock.unlock();
+        }
+    }        
 
     /**
      * Removes all the root resource records.
